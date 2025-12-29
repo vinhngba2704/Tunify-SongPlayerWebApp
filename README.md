@@ -1,13 +1,15 @@
 ### 📂 File Structure:
-**Song_Player**
-├── .git
+```
+Song_Player/
+├── .git/
 ├── .gitignore
 ├── .python-version
-├── .venv
+├── .venv/
 ├── README.md
-├── lyrics
+├── lyrics/
 ├── main.py
 ├── pyproject.toml
-├── sounds
+├── sounds/
 ├── test.ipynb
 └── uv.lock
+```
