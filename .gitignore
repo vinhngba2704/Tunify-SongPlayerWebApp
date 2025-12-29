@@ -11,3 +11,7 @@ wheels/
 
 # File test
 test.ipynb
+
+# Data Folders
+lyrics/
+sounds/
