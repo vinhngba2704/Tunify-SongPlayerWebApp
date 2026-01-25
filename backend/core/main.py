@@ -303,8 +303,9 @@ async def import_track(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
-# if __name__ == "__main__":
-#     import uvicorn
-#     host = os.getenv("BACKEND_HOST", "127.0.0.1")
-#     port = int(os.getenv("BACKEND_PORT", "8000"))
-#     uvicorn.run(app, host=host, port=port)
+if __name__ == "__main__":
+    import uvicorn
+    # PORT is used by Render, BACKEND_PORT is for local development
+    host = os.getenv("BACKEND_HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", os.getenv("BACKEND_PORT", "8000")))
+    uvicorn.run(app, host=host, port=port)
