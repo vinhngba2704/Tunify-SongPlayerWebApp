@@ -1,20 +1,27 @@
 # 🎵 Tunify - Music Player Web Application
 
-Ứng dụng phát nhạc web với giao diện hiện đại, hỗ trợ hiển thị lời bài hát đồng bộ với animation mượt mà (karaoke style).
+Ứng dụng phát nhạc web với giao diện hiện đại, hỗ trợ hiển thị lời bài hát đồng bộ với animation mượt mà (karaoke style). Sử dụng **MongoDB Atlas** để lưu metadata và **Google Cloud Storage (GCS)** để stream audio/lyrics.
 
 ## ✨ Tính năng
 
 ### 🎧 Phát nhạc
-- Stream nhạc trực tiếp từ backend FastAPI
+- Stream nhạc trực tiếp từ Google Cloud Storage qua signed URLs
 - Điều khiển phát/dừng, next/previous track
 - Seek bar tương tác với preview thời gian khi hover
 - Tự động chuyển bài khi kết thúc
+- Auto-refresh signed URLs khi hết hạn (15 phút)
 
 ### 🎤 Lyrics Đồng bộ
 - Hiển thị lời bài hát theo thời gian thực (karaoke style)
 - Animation mượt mà 60fps với progress bar cho từng dòng
 - Điều chỉnh offset để đồng bộ chính xác
 - Tự động scroll theo dòng đang phát
+
+### 📤 Import Track
+- Upload bài hát mới trực tiếp từ giao diện web
+- Tự động upload lên GCS và lưu metadata vào MongoDB
+- Hỗ trợ upload cả file MP3 và LRC (lyrics)
+- Bảo vệ bằng mật khẩu
 
 ### 🎨 Giao diện
 - Dark theme theo phong cách Spotify (#121212)
@@ -26,15 +33,17 @@
 ### 🔍 Tính năng khác
 - Tìm kiếm bài hát realtime
 - Playlist management
-- Environment variables configuration (.env)
+- Environment variables configuration
 - CORS configuration linh hoạt
 
 ## 🛠️ Tech Stack
 
 ### Backend
-- **FastAPI** - High-performance web framework
+- **FastAPI** - High-performance Python web framework
+- **MongoDB Atlas** - Cloud database để lưu song metadata
+- **Google Cloud Storage** - Cloud storage cho audio/lyrics files
 - **Uvicorn** - ASGI server
-- **python-dotenv** - Environment variables management
+- **httpx** - Async HTTP client
 - **Python 3.12+**
 
 ### Frontend
@@ -44,17 +53,25 @@
 - **Tailwind CSS 4** - Utility-first CSS
 - **Lucide React** - Icon library
 
+### Deployment
+- **Render** - Backend hosting
+- **Vercel** - Frontend hosting
+
 ## 📂 Cấu trúc Project
 
 ```
 Song_Player/
 ├── backend/
 │   ├── core/
-│   │   ├── main.py           # FastAPI server với CORS & static files
+│   │   ├── main.py           # FastAPI server với API endpoints
 │   │   └── utils.py          # Parse LRC & normalize song names
-│   ├── sounds/               # File nhạc .mp3
-│   ├── lyrics/               # File lời bài hát .lrc
-│   └── pyproject.toml        # Backend dependencies (uv)
+│   ├── utils/
+│   │   ├── gcs.py            # Google Cloud Storage utilities
+│   │   ├── mongodb.py        # MongoDB connection & queries
+│   │   └── utils.py          # Shared utilities
+│   ├── sounds/               # Local sounds (development only)
+│   ├── lyrics/               # Local lyrics (development only)
+│   └── test/                 # Test scripts
 ├── frontend/
 │   ├── app/
 │   │   ├── page.tsx          # Main music player component
@@ -63,27 +80,65 @@ Song_Player/
 │   │   ├── components/
 │   │   │   ├── LyricsViewer.tsx      # Lyrics display với animation
 │   │   │   ├── PlayerControls.tsx    # Play/pause, seek, offset controls
-│   │   │   ├── PlaylistPanel.tsx     # Song list với active state
+│   │   │   ├── PlaylistPanel.tsx     # Song list + import feature
 │   │   │   ├── SearchBar.tsx         # Search input
 │   │   │   └── SongHeader.tsx        # Current song display
 │   │   └── lib/
 │   │       └── config.ts     # API URL configuration
+│   ├── .env.local            # Frontend environment variables
 │   └── package.json
-├── .env                      # Environment variables (gitignored)
+├── .env                      # Backend environment variables (gitignored)
 ├── .env.example              # Environment template
+├── .gitignore                # Git ignore rules
 ├── start_app.bat             # Windows launcher script
-├── pyproject.toml            # Root project config (uv workspace)
+├── pyproject.toml            # Python dependencies (uv)
 └── README.md
 ```
 
-## 🚀 Cài đặt và Chạy
+## ⚙️ Environment Variables
+
+### Backend (.env)
+
+```bash
+# === Backend Configuration ===
+# BACKEND_HOST=127.0.0.1        # Local development
+# BACKEND_PORT=8000             # Local port
+
+# Production: Set BACKEND_URL for correct audioUrl generation
+# BACKEND_URL=https://your-backend-url.onrender.com
+
+# === CORS Settings ===
+ALLOWED_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app
+
+# === MongoDB Configuration (Required) ===
+MONGODB_USER=your_mongodb_username
+MONGODB_PASSWORD=your_mongodb_password
+
+# === Google Cloud Storage (Required) ===
+GCS_BUCKET_NAME=your-gcs-bucket-name
+GCS_SERVICE_ACCOUNT_JSON={"type": "service_account", "project_id": "...", ...}
+
+# === Import Password (Optional) ===
+# IMPORT_PASSWORD=your_secure_password
+```
+
+### Frontend (frontend/.env.local)
+
+```bash
+# API URL for the backend
+NEXT_PUBLIC_API_URL=https://your-backend-url.onrender.com
+```
+
+## 🚀 Cài đặt và Chạy (Local Development)
 
 ### Yêu cầu
 - **Python 3.12+**
 - **Node.js 18+**
 - **uv** (Python package manager)
+- **MongoDB Atlas** account
+- **Google Cloud** account với GCS bucket
 
-### 1️⃣ Cài đặt uv (nếu chưa có)
+### 1️⃣ Cài đặt uv
 
 **Windows:**
 ```powershell
@@ -97,9 +152,9 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ### 2️⃣ Cấu hình Environment Variables
 
-Tạo file `.env` từ template:
 ```bash
 cp .env.example .env
+# Điền các giá trị MongoDB và GCS vào file .env
 ```
 
 ### 3️⃣ Cài đặt Dependencies
@@ -118,22 +173,16 @@ npm install
 
 ### 4️⃣ Chạy ứng dụng
 
-#### Cách 1: Sử dụng launcher script (Khuyến nghị cho Windows)
+#### Cách 1: Sử dụng launcher script (Windows)
 ```bash
 start_app.bat
 ```
-
-Script này sẽ tự động:
-- Chạy backend server trên http://127.0.0.1:8000
-- Chạy frontend server trên http://localhost:3000
-- Mở 2 terminal riêng biệt
 
 #### Cách 2: Chạy thủ công
 
 **Terminal 1 - Backend:**
 ```bash
-cd backend
-uv run core/main.py
+uv run backend/core/main.py
 ```
 
 **Terminal 2 - Frontend:**
@@ -148,19 +197,52 @@ npm run dev
 - **Backend API:** http://127.0.0.1:8000
 - **API Documentation:** http://127.0.0.1:8000/docs
 
+## 🌍 Deployment
+
+### Backend - Render
+
+1. Tạo **Web Service** mới trên Render
+2. Connect GitHub repository
+3. Cấu hình:
+   - **Build Command:** `pip install uv && uv sync`
+   - **Start Command:** `uv run backend/core/main.py`
+4. Thêm Environment Variables:
+   ```
+   BACKEND_URL=https://your-app.onrender.com
+   ALLOWED_ORIGINS=https://your-frontend.vercel.app,http://localhost:3000
+   MONGODB_USER=...
+   MONGODB_PASSWORD=...
+   GCS_BUCKET_NAME=...
+   GCS_SERVICE_ACCOUNT_JSON=...
+   IMPORT_PASSWORD=...
+   ```
+
+### Frontend - Vercel
+
+1. Import project từ GitHub
+2. Chọn **Framework Preset:** Next.js
+3. **Root Directory:** `frontend`
+4. Thêm Environment Variable:
+   ```
+   NEXT_PUBLIC_API_URL=https://your-backend.onrender.com
+   ```
+
 ## 📝 API Endpoints
 
+### `GET /`
+Health check endpoint.
+
 ### `GET /api/songs`
-Lấy danh sách tất cả bài hát có trong thư mục `sounds/`
+Lấy danh sách tất cả bài hát từ MongoDB.
 
 **Response:**
 ```json
 {
   "songs": [
     {
-      "id": "CauseILoveYou",
+      "id": "6799abc123def456",
       "title": "Cause I Love You",
-      "audioUrl": "http://127.0.0.1:8000/static/sounds/CauseILoveYou.mp3",
+      "audioUrl": "https://backend-url/api/audio/6799abc123def456",
       "hasLyrics": true
     }
   ],
@@ -168,48 +250,62 @@ Lấy danh sách tất cả bài hát có trong thư mục `sounds/`
 }
 ```
 
+### `GET /api/audio/{song_id}`
+Redirect (302) tới GCS signed URL để stream audio.
+
 ### `GET /api/lyrics/{song_id}`
-Lấy lời bài hát đã được parse thành JSON
+Lấy và parse lời bài hát từ GCS.
 
 **Response:**
 ```json
 {
-  "songId": "CauseILoveYou",
+  "songId": "6799abc123def456",
   "lyrics": [
-    {
-      "time": 0.0,
-      "text": "First line of lyrics"
-    },
-    {
-      "time": 5.5,
-      "text": "Second line of lyrics"
-    }
+    { "time": 0.0, "text": "First line" },
+    { "time": 5.5, "text": "Second line" }
   ]
 }
 ```
 
-### `GET /api/audio/{song_id}`
-Stream file audio trực tiếp
+### `POST /api/verify-import-password`
+Xác thực mật khẩu để import track.
 
-### `GET /static/sounds/{filename}`
-Static file serving cho audio files
+**Request:**
+```json
+{ "password": "your_password" }
+```
+
+### `POST /api/import-track`
+Upload track mới lên GCS và lưu metadata vào MongoDB.
+
+**Form Data:**
+- `title`: Tên bài hát
+- `sound_file`: File MP3
+- `lyrics_file`: File LRC (optional)
 
 ## 📌 Thêm bài hát mới
 
-### Bước 1: Thêm file nhạc
-Đặt file `.mp3` vào thư mục `backend/sounds/`
-```
-backend/sounds/TenBaiHat.mp3
-```
+### Cách 1: Qua giao diện web (Khuyến nghị)
+1. Mở ứng dụng và click vào nút **Import Track** trong playlist panel
+2. Nhập mật khẩu (nếu có cấu hình)
+3. Điền tên bài hát, chọn file MP3 và LRC (optional)
+4. Click **Import** và đợi upload hoàn tất
+5. Bài hát mới sẽ tự động xuất hiện trong playlist
 
-### Bước 2: Thêm file lyrics
-Đặt file `.lrc` vào thư mục `backend/lyrics/` với tên giống file nhạc
-```
-backend/lyrics/TenBaiHat.lrc
-```
+### Cách 2: Upload trực tiếp lên GCS + MongoDB
+1. Upload file MP3 lên GCS bucket: `sounds/TenBaiHat.mp3`
+2. Upload file LRC lên GCS bucket: `lyrics/TenBaiHat.lrc`
+3. Thêm document vào MongoDB collection `song_playlist_metadata`:
+   ```json
+   {
+     "title": "Tên Bài Hát",
+     "gcs_mp3_blob": "sounds/TenBaiHat.mp3",
+     "gcs_lrc_blob": "lyrics/TenBaiHat.lrc",
+     "has_lyrics": true
+   }
+   ```
 
-### Bước 3: Format file .lrc
-File lyrics phải theo chuẩn LRC format:
+### Format file .lrc
 ```
 [00:12.50]Dòng lời đầu tiên
 [00:18.20]Dòng lời thứ hai
@@ -217,71 +313,83 @@ File lyrics phải theo chuẩn LRC format:
 ```
 
 Format: `[mm:ss.xx]Text`
-- `mm`: Phút (2 chữ số)
-- `ss`: Giây (2 chữ số)
-- `xx`: Phần trăm giây (2 chữ số)
-
-### Bước 4: Refresh
-Reload trang web, bài hát mới sẽ tự động xuất hiện trong playlist
 
 ## 🎮 Hướng dẫn sử dụng
 
 ### Điều khiển cơ bản
-1. **Tìm kiếm:** Gõ tên bài hát vào search bar
-2. **Chọn bài:** Click vào bài hát trong playlist
-3. **Phát/Dừng:** Click nút Play/Pause hoặc nhấn `Space`
-4. **Previous/Next:** Click nút ⏮/⏭ hoặc nhấn `←/→`
-5. **Seek:** Kéo thanh progress bar hoặc click vào vị trí mong muốn
+| Action | Mouse | Keyboard |
+|--------|-------|----------|
+| Phát/Dừng | Click Play button | `Space` |
+| Previous | Click ⏮ | `←` |
+| Next | Click ⏭ | `→` |
+| Seek | Click/Drag progress bar | - |
+| Tìm kiếm | Gõ vào search bar | - |
 
-### Điều khiển Lyrics
-- **Offset Up ▲:** Tăng độ trễ (lyrics chạy nhanh hơn) - Increment +0.1s
-- **Offset Down ▼:** Giảm độ trễ (lyrics chạy chậm hơn) - Decrement -0.1s
-- **Current offset:** Hiển thị ngay trên control panel
+### Điều khiển Lyrics Offset
+- **▲ (Up):** Tăng offset +0.1s (lyrics nhanh hơn)
+- **▼ (Down):** Giảm offset -0.1s (lyrics chậm hơn)
 
-### Tính năng nâng cao
-- **Hover preview:** Di chuột lên seek bar để xem thời gian
-- **Drag seek:** Kéo seek bar mượt mà với real-time update
-- **Auto-scroll:** Lyrics tự động scroll theo dòng đang phát
-- **Progress animation:** Mỗi dòng lyrics có progress bar riêng
+## 📊 Architecture
+
+```
+┌─────────────┐     ┌─────────────┐     ┌──────────────────┐
+│   Browser   │────▶│   Vercel    │     │  MongoDB Atlas   │
+│  (Next.js)  │     │  (Frontend) │     │   (Metadata)     │
+└─────────────┘     └─────────────┘     └──────────────────┘
+       │                   │                      ▲
+       │                   │                      │
+       ▼                   ▼                      │
+┌─────────────────────────────────────┐          │
+│           Render (Backend)          │──────────┘
+│             FastAPI                 │
+└─────────────────────────────────────┘
+       │
+       │ Signed URLs (302 redirect)
+       ▼
+┌──────────────────┐
+│  Google Cloud    │
+│  Storage (GCS)   │
+│  - Audio files   │
+│  - Lyrics files  │
+└──────────────────┘
+```
+
+### Flow khi phát nhạc:
+1. Frontend gọi `/api/songs` → Backend query MongoDB → Trả về danh sách bài hát với `audioUrl`
+2. User chọn bài → Browser request `audioUrl` (`/api/audio/{id}`)
+3. Backend kiểm tra signed URL còn hạn không:
+   - Còn hạn → Redirect 302 tới GCS signed URL
+   - Hết hạn → Generate URL mới, update MongoDB, redirect
+4. Browser stream audio trực tiếp từ GCS
 
 ## 📊 Performance
 
 - **60 FPS** lyrics sync với `requestAnimationFrame`
-- **Real-time seek** với debounce cho smooth experience
+- **Auto-refresh** signed URLs khi expired (15 phút)
+- **302 Redirect** thay vì proxy để giảm bandwidth backend
 - **Optimized re-renders** với React hooks
-- **Static file serving** cho audio streaming hiệu quả
 
 ---
 
-## Legacy Python Version
+## 🐍 Legacy Python Version (Terminal-based)
 
-### 📦 Requirements:
-- uv: Go to the uv documentation to download or run the below command:
-  - Window: ```powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"```
-  - Linux: ```curl -LsSf https://astral.sh/uv/install.sh | sh```
+Phiên bản terminal cho phát nhạc offline.
 
-### 🪜 Steps to run:
-1. Clone the repository
-2. Install uv
-3. Go into the cloned directory
-4. Create 2 folders **lyrics** (contains .lrc files) and **sounds** (contain .mp3 files)
-4. Run ```uv sync``` to recreate the required enviroment
-5. Run ```uv run runalone.py``` to start
+### Chạy:
+```bash
+uv run runalone.py
+```
 
-### 📒 Note:
-- Filename (without extension) of .lrc files and .mp3 files need to be the same (e.g. MatKetNoi.lrc & MatKetNoi.mp3)
-- In case you want to modify the playlist, you need to modify the **runalone.py**
-
-### 🎮 Controlling Instructions:
-- ```Space``` button: Pause/Resume
-- ```↑↓``` button: Adjust Offset (Speed of lyrics vs. sounds)
-- ```←→``` button: Go to the prev/next song
+### Điều khiển:
+- `Space`: Pause/Resume
+- `↑↓`: Adjust lyrics offset
+- `←→`: Previous/Next song
 
 ---
 
 ## 📄 License
 
-Made by **vinhngba2704** 🎵
+Made with ❤️ by **vinhngba2704** 🎵
 
 ---
 
