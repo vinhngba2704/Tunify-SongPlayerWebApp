@@ -215,8 +215,8 @@ async def import_track(
 ):
     """Upload track files to Google Cloud Storage and save metadata to MongoDB"""
     try:
-        from utils.gcs import upload_file, generate_signed_url, GCS_BUCKET_NAME
-        from utils.mongodb import insert_song_metadata, update_song_metadata, SongMetadata
+        from backend.utils.gcs import upload_file, generate_signed_url, GCS_BUCKET_NAME
+        from backend.utils.mongodb import insert_song_metadata, update_song_metadata, SongMetadata
         
         uploaded_sound = None
         uploaded_lyrics = None
