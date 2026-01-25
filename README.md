@@ -182,7 +182,7 @@ start_app.bat
 
 **Terminal 1 - Backend:**
 ```bash
-uv run backend/core/main.py
+uv run python -m backend.core.main
 ```
 
 **Terminal 2 - Frontend:**

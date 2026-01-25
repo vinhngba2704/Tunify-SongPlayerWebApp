@@ -6,7 +6,7 @@ echo ========================================
 echo.
 
 echo Starting Backend Server...
-start "Music Player Backend" cmd /k "cd backend && uv run .\core\main.py"
+start "Music Player Backend" cmd /k "uv run python -m backend.core.main"
 
 echo Waiting 3 seconds for backend to initialize...
 timeout /t 3 /nobreak > nul
