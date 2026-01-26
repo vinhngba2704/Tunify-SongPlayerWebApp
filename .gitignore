@@ -27,3 +27,6 @@ backend/sounds/
 
 # Google Cloud credentials
 backend/hobby-485302-18fa29b07e5a.json
+
+# Sensitive Gemini prompt file
+backend/utils/prompts.py

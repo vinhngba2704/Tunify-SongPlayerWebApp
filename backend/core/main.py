@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse, Response
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import os
 import tempfile
 import httpx
@@ -23,6 +23,7 @@ try:
     from backend.utils.mongodb import get_all_songs, get_song_by_id, update_song_metadata
     from backend.utils.gcs import generate_signed_url, GCS_BUCKET_NAME
     from backend.utils.utils import normalize_song_name, parse_lrc, parse_lrc_content
+    from backend.utils.gemini import generate_robot_comment
 except ImportError:
     pass
 
@@ -306,6 +307,26 @@ async def import_track(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+class RobotCommentRequest(BaseModel):
+    song_title: Optional[str] = None
+    lyrics: Optional[str] = None
+
+
+@app.post("/api/robot-comment")
+async def get_robot_comment(request: RobotCommentRequest):
+    """Lấy comment từ Gemini AI cho robot Mắm Chan"""
+    try:
+        comment = generate_robot_comment(request.song_title, request.lyrics)
+        return {"success": True, "comment": comment}
+    except Exception as e:
+        # Fallback message nếu có lỗi
+        return {
+            "success": False,
+            "comment": "Bài hát có hay không, bạn thấy thế nào? 🎵",
+            "error": str(e)
+        }
 
 
 if __name__ == "__main__":

@@ -394,3 +394,9 @@ Made with ❤️ by **vinhngba2704** 🎵
 ---
 
 **Enjoy your music! 🎧✨**
+
+## 🔒 Prompt bảo mật cho Gemini AI
+
+- File prompt thực tế **KHÔNG public**: `backend/utils/prompts.py` (đã nằm trong `.gitignore`)
+- Nếu muốn deploy hoặc phát triển, hãy copy file mẫu `backend/utils/prompts_example.py` thành `prompts.py` và chỉnh sửa nội dung prompt theo ý bạn.
+- **Không commit file prompts.py lên public repo!**

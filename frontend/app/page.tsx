@@ -6,6 +6,8 @@ import LyricsViewer from './components/LyricsViewer';
 import PlaylistPanel from './components/PlaylistPanel';
 import PlayerControls from './components/PlayerControls';
 import SongHeader from './components/SongHeader';
+import RobotIcon, { RobotIconHandle } from './components/RobotIcon';
+import { ROBOT_CONFIG } from './components/configs/robotConfig';
 import { API_URL } from './lib/config';
 
 interface Song {
@@ -34,6 +36,7 @@ export default function MusicPlayer() {
   const [isShuffleOn, setIsShuffleOn] = useState<boolean>(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
+  const robotRef = useRef<RobotIconHandle>(null);
   const requestRef = useRef<number>(null);
   const isFirstSongInitialized = useRef<boolean>(false);
 
@@ -229,7 +232,8 @@ export default function MusicPlayer() {
         </div>
 
         {currentSong && (
-          <div className="hidden md:block">
+          <div className="hidden md:flex items-center gap-3">
+            {/* Now Playing / Paused Status */}
             <div className="bg-white/5 border border-white/10 backdrop-blur-xl px-4 py-2 rounded-full flex items-center gap-3">
               <div className="flex items-end gap-1 h-3">
                 <div className={`w-1 bg-blue-500 rounded-full ${isPlaying ? 'animate-[music-bar_0.8s_ease-in-out_infinite_100ms]' : 'h-1'}`} />
@@ -240,6 +244,17 @@ export default function MusicPlayer() {
                 {isPlaying ? 'Now Playing' : 'Paused'}
               </span>
             </div>
+
+            {/* Robot Call Button */}
+            <button
+              onClick={() => robotRef.current?.showRobot()}
+              className="bg-white/5 border border-white/10 backdrop-blur-xl px-4 py-2 rounded-full flex items-center gap-2 hover:bg-white/10 transition-all duration-300"
+              title={ROBOT_CONFIG.tooltipMessage}
+            >
+              <span className="text-white/80 text-[10px] font-bold uppercase tracking-[0.15em]">
+                Mắm
+              </span>
+            </button>
           </div>
         )}
       </header>
@@ -305,6 +320,16 @@ export default function MusicPlayer() {
       </footer>
 
       {currentSong && <audio ref={audioRef} key={currentSong.id} src={currentSong.audioUrl} preload="metadata" onEnded={handleSongEnded} />}
+
+      {/* Robot Icon - xuất hiện tại 1/3 và 2/3 thời gian bài hát */}
+      <RobotIcon 
+        ref={robotRef}
+        currentTime={currentTime} 
+        duration={duration} 
+        songId={currentSong?.id}
+        songTitle={currentSong?.title}
+        lyrics={lyrics}
+      />
 
       {/* CSS Animation cho cột nhạc (Thêm vào global.css hoặc dùng style tag) */}
       <style jsx global>{`
