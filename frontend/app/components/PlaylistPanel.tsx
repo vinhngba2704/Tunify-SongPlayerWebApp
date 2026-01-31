@@ -657,8 +657,8 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
                     onClick={(e) => handleTrackMenuClick(e, song.id)}
                     className={`p-2 rounded-lg transition-all duration-200 ${isMenuOpen
                       ? 'bg-white/10 text-white'
-                      : 'text-slate-500 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100'
-                      } ${isActive ? 'opacity-100' : ''}`}
+                      : 'text-slate-500 hover:text-white hover:bg-white/10'
+                      }`}
                   >
                     <MoreVertical className="w-4 h-4" />
                   </button>
