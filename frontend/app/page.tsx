@@ -358,9 +358,9 @@ export default function MusicPlayer() {
         </div>
       </main>
 
-      {/* 4. Footer: Control Bar - Fixed position để luôn hiển thị trên mobile */}
-      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-[#181818] backdrop-blur-2xl border-t border-white/5 py-3 px-6 safe-area-pb">
-        <div className="max-w-7xl mx-auto">
+      {/* 4. Footer: Control Bar - Fixed position */}
+      <footer className="fixed bottom-4 left-0 right-0 z-50 px-4 md:px-6 pointer-events-none">
+        <div className="max-w-7xl mx-auto pointer-events-auto">
           <PlayerControls
             isPlaying={isPlaying}
             currentSongIndex={currentSongIndex}

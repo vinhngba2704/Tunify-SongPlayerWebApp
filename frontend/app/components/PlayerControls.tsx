@@ -114,141 +114,177 @@ export default function PlayerControls({
   }, [onPlayPause]);
 
   return (
-    <div className="w-full select-none">
-      {/* Layout ngang gọn gàng - tất cả trên 1 dòng */}
-      <div className="flex items-center gap-4">
+    <div className="w-full select-none h-[72px] bg-[#020617] rounded-[32px] border border-white/10 relative overflow-hidden group shadow-2xl flex items-center px-6 transition-all duration-300 hover:border-white/20">
 
-        {/* LEFT: Offset control */}
-        <div className="hidden sm:flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
-          <Timer className="w-3.5 h-3.5 text-zinc-500" />
-          <span className="text-zinc-400 font-mono text-[10px] min-w-[32px]">
-            {offset > 0 ? `+${offset.toFixed(1)}` : offset.toFixed(1)}s
-          </span>
-          <div className="flex flex-col -space-y-1">
-            <button onClick={onOffsetUp} className="p-0 hover:text-white text-zinc-600 transition">
-              <ChevronUp className="w-3 h-3" />
-            </button>
-            <button onClick={onOffsetDown} className="p-0 hover:text-white text-zinc-600 transition">
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
+      {/* 1. HIỆU ỨNG DẢI SỢI CHỈ (Silk threads) */}
+      <div className="absolute inset-0 z-0 opacity-20 pointer-events-none transform scale-125">
+        <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" className="w-full h-full">
+          <defs>
+            <linearGradient id="controlThreadGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0" />
+              <stop offset="50%" stopColor="#3b82f6" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#1e3a8a" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {[...Array(6)].map((_, i) => (
+            <path
+              key={i}
+              className="animate-silk-thread"
+              stroke="url(#controlThreadGradient)"
+              strokeWidth="1"
+              fill="none"
+              d={`M-100,${200 + i * 150} Q300,${100 + i * 50} 500,${500} T1100,${800 - i * 100}`}
+              style={{ animationDelay: `${i * -3}s`, animationDuration: '40s' }}
+            />
+          ))}
+        </svg>
+      </div>
 
-        {/* CENTER: Controls + Progress Bar */}
-        <div className="flex-1 flex items-center gap-3">
+      {/* 2. CONTENT */}
+      <div className="relative z-10 w-full">
+        {/* Layout ngang gọn gàng - tất cả trên 1 dòng */}
+        <div className="flex items-center gap-6">
 
-          {/* Play Controls */}
-          <div className="flex items-center gap-3">
-            {/* Shuffle Button */}
-            <button
-              onClick={onShuffleToggle}
-              className={`transition-all active:scale-90 ${isShuffleOn
-                  ? 'text-blue-400 hover:text-blue-300'
-                  : 'text-zinc-500 hover:text-white'
-                }`}
-              title={isShuffleOn ? 'Shuffle: On' : 'Shuffle: Off'}
-            >
-              <Shuffle className="w-4 h-4" strokeWidth={2} />
-            </button>
-
-            {/* Previous Track */}
-            <button
-              onClick={onPrevious}
-              disabled={currentSongIndex === 0}
-              className={`transition-all ${currentSongIndex === 0 ? 'text-zinc-700' : 'text-zinc-400 hover:text-white active:scale-90'}`}
-              title="Previous track"
-            >
-              <SkipBack className="w-5 h-5 fill-current" />
-            </button>
-
-            {/* Play/Pause */}
-            <button
-              onClick={onPlayPause}
-              className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:scale-105 transition shadow-lg shadow-white/10 active:scale-95"
-            >
-              {isPlaying ? (
-                <Pause className="w-4 h-4 text-black fill-current" />
-              ) : (
-                <Play className="w-4 h-4 text-black fill-current ml-0.5" />
-              )}
-            </button>
-
-            {/* Next Track */}
-            <button
-              onClick={onNext}
-              disabled={currentSongIndex === totalSongs - 1 && !isShuffleOn}
-              className={`transition-all ${(currentSongIndex === totalSongs - 1 && !isShuffleOn)
-                  ? 'text-zinc-700'
-                  : 'text-zinc-400 hover:text-white active:scale-90'
-                }`}
-              title="Next track"
-            >
-              <SkipForward className="w-5 h-5 fill-current" />
-            </button>
-          </div>
-
-          {/* Time + Progress Bar */}
-          <span className="text-zinc-500 text-[10px] font-mono min-w-[32px] text-right">
-            {formatTime(isDragging ? dragProgress * duration : currentTime)}
-          </span>
-
-          <div className="flex-1 relative h-5 flex items-center group">
-            {/* Tooltip */}
-            {hoverTime !== null && !isDragging && (
-              <div
-                className="absolute -top-6 bg-white text-black text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xl pointer-events-none -translate-x-1/2 z-20"
-                style={{ left: `${(hoverTime / duration) * 100}%` }}
-              >
-                {formatTime(hoverTime)}
-              </div>
-            )}
-
-            {/* Progress Track */}
-            <div
-              ref={progressBarRef}
-              className="w-full h-1 bg-zinc-800 rounded-full cursor-pointer relative group-hover:h-1.5 transition-all"
-              onMouseDown={handleMouseDown}
-              onMouseMove={(e) => {
-                const time = getProgressFromEvent(e.clientX) * duration;
-                setHoverTime(time);
-              }}
-              onMouseLeave={() => setHoverTime(null)}
-            >
-              {/* Click area padding */}
-              <div className="absolute -inset-y-2 w-full" />
-
-              {/* Progress Fill */}
-              <div
-                className={`h-full rounded-full relative transition-colors ${isDragging ? 'bg-blue-500' : 'bg-white/80 group-hover:bg-blue-500'}`}
-                style={{ width: `${visualProgress}%` }}
-              >
-                {/* Handle */}
-                <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white rounded-full shadow-md transition-all ${isDragging ? 'scale-110 opacity-100' : 'opacity-0 group-hover:opacity-100 scale-100'
-                  }`} />
-              </div>
+          {/* LEFT: Offset control */}
+          <div className="hidden sm:flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
+            <Timer className="w-3.5 h-3.5 text-zinc-500" />
+            <span className="text-zinc-400 font-mono text-[10px] min-w-[32px]">
+              {offset > 0 ? `+${offset.toFixed(1)}` : offset.toFixed(1)}s
+            </span>
+            <div className="flex flex-col -space-y-1">
+              <button onClick={onOffsetUp} className="p-0 hover:text-white text-zinc-600 transition">
+                <ChevronUp className="w-3 h-3" />
+              </button>
+              <button onClick={onOffsetDown} className="p-0 hover:text-white text-zinc-600 transition">
+                <ChevronDown className="w-3 h-3" />
+              </button>
             </div>
           </div>
 
-          <span className="text-zinc-500 text-[10px] font-mono min-w-[32px]">
-            {formatTime(duration)}
-          </span>
-        </div>
+          {/* CENTER: Controls + Progress Bar */}
+          <div className="flex-1 flex items-center gap-4">
 
-        {/* RIGHT: Track number + Shuffle indicator */}
-        <div className="hidden sm:flex items-center gap-2 text-zinc-500">
-          {isShuffleOn && (
-            <span className="text-[8px] uppercase font-bold tracking-wider text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded">
-              Shuffle
-            </span>
-          )}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[9px] uppercase font-semibold tracking-wider">Track</span>
-            <span className="font-mono text-[11px] text-zinc-400">
-              {currentSongIndex + 1}<span className="text-zinc-600 mx-0.5">/</span>{totalSongs}
-            </span>
+            {/* Play Controls */}
+            <div className="flex items-center gap-4">
+              {/* Shuffle Button */}
+              <button
+                onClick={onShuffleToggle}
+                className={`transition-all active:scale-90 ${isShuffleOn
+                  ? 'text-blue-400 hover:text-blue-300'
+                  : 'text-zinc-500 hover:text-white'
+                  }`}
+                title={isShuffleOn ? 'Shuffle: On' : 'Shuffle: Off'}
+              >
+                <Shuffle className="w-4 h-4" strokeWidth={2} />
+              </button>
+
+              {/* Previous Track */}
+              <button
+                onClick={onPrevious}
+                disabled={currentSongIndex === 0}
+                className={`transition-all ${currentSongIndex === 0 ? 'text-zinc-700' : 'text-zinc-400 hover:text-white active:scale-90'}`}
+                title="Previous track"
+              >
+                <SkipBack className="w-5 h-5 fill-current" />
+              </button>
+
+              {/* Play/Pause */}
+              <button
+                onClick={onPlayPause}
+                className="w-12 h-12 bg-white rounded-full flex items-center justify-center hover:scale-105 transition shadow-lg shadow-white/10 active:scale-95 group/play"
+              >
+                {isPlaying ? (
+                  <Pause className="w-5 h-5 text-black fill-current" />
+                ) : (
+                  <Play className="w-5 h-5 text-black fill-current ml-0.5" />
+                )}
+              </button>
+
+              {/* Next Track */}
+              <button
+                onClick={onNext}
+                disabled={currentSongIndex === totalSongs - 1 && !isShuffleOn}
+                className={`transition-all ${(currentSongIndex === totalSongs - 1 && !isShuffleOn)
+                  ? 'text-zinc-700'
+                  : 'text-zinc-400 hover:text-white active:scale-90'
+                  }`}
+                title="Next track"
+              >
+                <SkipForward className="w-5 h-5 fill-current" />
+              </button>
+            </div>
+
+            {/* Time + Progress Bar */}
+            <div className="flex-1 flex items-center gap-3">
+              <span className="text-zinc-400 text-[11px] font-mono min-w-[36px] text-right">
+                {formatTime(isDragging ? dragProgress * duration : currentTime)}
+              </span>
+
+              <div className="flex-1 relative h-6 flex items-center group/bar">
+                {/* Tooltip */}
+                {hoverTime !== null && !isDragging && (
+                  <div
+                    className="absolute -top-8 bg-white text-black text-[10px] font-bold px-2 py-1 rounded shadow-xl pointer-events-none -translate-x-1/2 z-20"
+                    style={{ left: `${(hoverTime / duration) * 100}%` }}
+                  >
+                    {formatTime(hoverTime)}
+                  </div>
+                )}
+
+                {/* Progress Track */}
+                <div
+                  ref={progressBarRef}
+                  className="w-full h-1 bg-white/10 rounded-full cursor-pointer relative group-hover/bar:h-1.5 transition-all duration-300"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={(e) => {
+                    const time = getProgressFromEvent(e.clientX) * duration;
+                    setHoverTime(time);
+                  }}
+                  onMouseLeave={() => setHoverTime(null)}
+                >
+                  {/* Click area padding */}
+                  <div className="absolute -inset-y-3 w-full" />
+
+                  {/* Progress Fill */}
+                  <div
+                    className={`h-full rounded-full relative transition-all duration-150 ${isDragging ? 'bg-blue-400' : 'bg-white/60 group-hover/bar:bg-blue-400'}`}
+                    style={{ width: `${visualProgress}%` }}
+                  >
+                    {/* Handle */}
+                    <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all duration-300 ${isDragging ? 'scale-110 opacity-100' : 'opacity-0 group-hover/bar:opacity-100 scale-100'
+                      }`} />
+                  </div>
+                </div>
+              </div>
+
+              <span className="text-zinc-600 text-[11px] font-mono min-w-[36px]">
+                {formatTime(duration)}
+              </span>
+            </div>
+          </div>
+
+          {/* RIGHT: Track number + Shuffle indicator */}
+          <div className="hidden sm:flex items-center gap-3 text-zinc-500 border-l border-white/5 pl-6">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-600">Track</span>
+              <span className="font-mono text-sm text-zinc-300">
+                {String(currentSongIndex + 1).padStart(2, '0')}<span className="text-zinc-700 mx-1">/</span>{String(totalSongs).padStart(2, '0')}
+              </span>
+            </div>
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes silk-thread {
+          0% { stroke-dashoffset: 2000; }
+          100% { stroke-dashoffset: 0; }
+        }
+        .animate-silk-thread {
+          stroke-dasharray: 500 1500;
+          animation: silk-thread 40s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }
