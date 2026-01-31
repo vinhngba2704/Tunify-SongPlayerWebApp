@@ -50,6 +50,30 @@ def upload_file(bucket_name, source_file_path, destination_blob_name):
     print(f"✅ Upload thành công!")
     return blob.name
 
+def delete_file(bucket_name, blob_name):
+    """
+    Xóa một file khỏi Google Cloud Storage.
+    """
+    # 1. Khởi tạo client (giống như việc bạn cầm chìa khóa vào kho)
+    storage_client = get_storage_client()
+    
+    # 2. Xác định cái thùng (bucket) chứa file
+    bucket = storage_client.bucket(bucket_name)
+    
+    # 3. Xác định đúng file (blob) cần xóa thông qua tên của nó
+    blob = bucket.blob(blob_name)
+
+    print(f"Đang tiến hành xóa file {blob_name} khỏi bucket {bucket_name}...")
+
+    # 4. Thực hiện lệnh xóa
+    try:
+        blob.delete()
+        print(f"✅ Xóa file thành công!")
+        return True
+    except Exception as e:
+        print(f"❌ Có lỗi xảy ra khi xóa file: {e}")
+        return False
+
 def generate_signed_url(bucket_name, blob_name):
     """Tạo một Signed URL để truy cập file riêng tư trong thời gian ngắn."""
     

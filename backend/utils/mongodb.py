@@ -134,6 +134,25 @@ def get_song_by_title(title: str):
     return song
 
 
+def delete_song_by_id(document_id):
+    """
+    Delete a song by its ID.
+    
+    Args:
+        document_id: The ObjectId or string ID of the document
+    
+    Returns:
+        True if document was deleted, False otherwise
+    """
+    from bson import ObjectId
+    
+    result = collection.delete_one(
+        {"_id": ObjectId(document_id) if isinstance(document_id, str) else document_id}
+    )
+    print(f"Deleted {result.deleted_count} document(s)")
+    return result.deleted_count > 0
+
+
 # Example usage
 if __name__ == "__main__":
     # Test connection

@@ -20,8 +20,8 @@ load_dotenv()
 #     from utils.utils import normalize_song_name, parse_lrc, parse_lrc_content
 
 try:
-    from backend.utils.mongodb import get_all_songs, get_song_by_id, update_song_metadata
-    from backend.utils.gcs import generate_signed_url, GCS_BUCKET_NAME
+    from backend.utils.mongodb import get_all_songs, get_song_by_id, update_song_metadata, delete_song_by_id
+    from backend.utils.gcs import generate_signed_url, GCS_BUCKET_NAME, delete_file
     from backend.utils.utils import normalize_song_name, parse_lrc, parse_lrc_content
     from backend.utils.gemini import generate_robot_comment
 except ImportError:
@@ -211,6 +211,49 @@ async def verify_import_password(request: PasswordVerifyRequest):
         return {"success": True, "message": "Password verified successfully"}
     else:
         raise HTTPException(status_code=401, detail="Incorrect password")
+
+
+@app.delete("/api/track/{song_id}")
+async def delete_track(song_id: str):
+    """Delete a track from GCS and MongoDB"""
+    try:
+        # Step 1: Get song metadata to find GCS blob paths
+        song = get_song_by_id(song_id)
+        if not song:
+            raise HTTPException(status_code=404, detail="Track not found")
+        
+        gcs_mp3_blob = song.get("gcs_mp3_blob")
+        gcs_lrc_blob = song.get("gcs_lrc_blob")
+        
+        # Step 2: Delete MP3 file from GCS
+        if gcs_mp3_blob:
+            mp3_deleted = delete_file(GCS_BUCKET_NAME, gcs_mp3_blob)
+            if not mp3_deleted:
+                print(f"Warning: Could not delete MP3 file: {gcs_mp3_blob}")
+        
+        # Step 3: Delete LRC file from GCS (if exists)
+        if gcs_lrc_blob:
+            lrc_deleted = delete_file(GCS_BUCKET_NAME, gcs_lrc_blob)
+            if not lrc_deleted:
+                print(f"Warning: Could not delete LRC file: {gcs_lrc_blob}")
+        
+        # Step 4: Delete song document from MongoDB
+        deleted = delete_song_by_id(song_id)
+        if not deleted:
+            raise HTTPException(status_code=500, detail="Failed to delete track from database")
+        
+        return {
+            "success": True,
+            "message": "Track deleted successfully",
+            "deleted_song_id": song_id,
+            "deleted_mp3": gcs_mp3_blob,
+            "deleted_lrc": gcs_lrc_blob
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
 
 
 @app.post("/api/import-track")

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Mic2, PlayCircle, ListMusic, Plus, X, Upload, Music, FileText, Lock, Eye, EyeOff } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Mic2, PlayCircle, ListMusic, Plus, X, Upload, Music, FileText, Lock, Eye, EyeOff, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { API_URL } from '../lib/config';
 
 interface Song {
@@ -31,16 +31,40 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
   const [passwordError, setPasswordError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [passwordAction, setPasswordAction] = useState<'import' | 'delete'>('import');
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [deleteTrackId, setDeleteTrackId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
   const [formData, setFormData] = useState<ImportFormData>({
     title: '',
     soundFile: null,
     lyricsFile: null,
   });
-  
+
   const soundInputRef = useRef<HTMLInputElement>(null);
   const lyricsInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpenId(null);
+      }
+    };
+
+    if (menuOpenId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpenId]);
 
   const handleImportButtonClick = () => {
+    setPasswordAction('import');
     setIsPasswordModalOpen(true);
     setPassword('');
     setPasswordError('');
@@ -49,10 +73,10 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
 
   const handlePasswordSubmit = async () => {
     if (!password.trim()) return;
-    
+
     setIsVerifying(true);
     setPasswordError('');
-    
+
     try {
       const response = await fetch(`${API_URL}/api/verify-import-password`, {
         method: 'POST',
@@ -61,12 +85,18 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
         },
         body: JSON.stringify({ password }),
       });
-      
+
       if (response.ok) {
         setIsPasswordModalOpen(false);
-        setIsModalOpen(true);
         setPassword('');
         setPasswordError('');
+
+        if (passwordAction === 'import') {
+          setIsModalOpen(true);
+        } else if (passwordAction === 'delete' && deleteTrackId) {
+          // Proceed with delete
+          handleDeleteConfirmed();
+        }
       } else {
         setPasswordError('Incorrect password. Please try again.');
       }
@@ -74,6 +104,38 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
       setPasswordError('Connection error. Please try again.');
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!deleteTrackId) return;
+
+    setIsDeleting(true);
+    setDeleteError('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/track/${deleteTrackId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setDeleteSuccess(true);
+        // Refresh playlist after deletion
+        if (onRefresh) {
+          onRefresh();
+        }
+        setTimeout(() => {
+          setDeleteTrackId(null);
+          setDeleteSuccess(false);
+        }, 1500);
+      } else {
+        const error = await response.json();
+        setDeleteError(error.detail || 'Delete failed. Please try again.');
+      }
+    } catch (error) {
+      setDeleteError('Connection error. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -85,6 +147,28 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
 
   const handleClosePasswordModal = () => {
     setIsPasswordModalOpen(false);
+    setPassword('');
+    setPasswordError('');
+    setShowPassword(false);
+    setDeleteTrackId(null);
+  };
+
+  const handleTrackMenuClick = (e: React.MouseEvent, songId: string) => {
+    e.stopPropagation(); // Prevent song selection
+    setMenuOpenId(menuOpenId === songId ? null : songId);
+  };
+
+  const handleUpdateTrack = (songId: string) => {
+    // TODO: Implement update track logic later
+    console.log('Update track:', songId);
+    setMenuOpenId(null);
+  };
+
+  const handleDeleteTrack = (songId: string) => {
+    setMenuOpenId(null);
+    setDeleteTrackId(songId);
+    setPasswordAction('delete');
+    setIsPasswordModalOpen(true);
     setPassword('');
     setPasswordError('');
     setShowPassword(false);
@@ -151,27 +235,27 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
 
   const handleImport = async () => {
     if (!formData.title.trim() || !formData.soundFile) return;
-    
+
     setIsImporting(true);
     setImportError('');
-    
+
     try {
       const formDataToSend = new FormData();
       formDataToSend.append('title', formData.title);
-      
+
       // Append sound file
       formDataToSend.append('sound_file', formData.soundFile);
-      
+
       // Append lyrics file if exists
       if (formData.lyricsFile) {
         formDataToSend.append('lyrics_file', formData.lyricsFile);
       }
-      
+
       const response = await fetch(`${API_URL}/api/import-track`, {
         method: 'POST',
         body: formDataToSend,
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         console.log('Import successful:', result);
@@ -238,7 +322,7 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
             <p className="text-[10px] text-blue-400/50 font-bold tracking-[0.2em]">PLAYLIST</p>
           </div>
         </div>
-        
+
         {/* Import Track Button */}
         <button
           onClick={handleImportButtonClick}
@@ -253,20 +337,25 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
       {isPasswordModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={handleClosePasswordModal}
           />
-          
+
           {/* Modal Content */}
           <div className="relative bg-[#0f172a] rounded-3xl border border-white/10 shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-500/10 rounded-xl ring-1 ring-amber-500/20">
-                  <Lock className="w-5 h-5 text-amber-400" />
+                <div className={`p-2 rounded-xl ring-1 ${passwordAction === 'delete'
+                  ? 'bg-red-500/10 ring-red-500/20'
+                  : 'bg-amber-500/10 ring-amber-500/20'
+                  }`}>
+                  <Lock className={`w-5 h-5 ${passwordAction === 'delete' ? 'text-red-400' : 'text-amber-400'}`} />
                 </div>
-                <h2 className="text-white text-lg font-bold">Enter Password</h2>
+                <h2 className="text-white text-lg font-bold">
+                  {passwordAction === 'delete' ? 'Confirm Delete' : 'Enter Password'}
+                </h2>
               </div>
               <button
                 onClick={handleClosePasswordModal}
@@ -278,7 +367,11 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
 
             {/* Modal Body */}
             <div className="p-6">
-              <p className="text-sm text-slate-400 mb-4">Please enter the password to access import feature.</p>
+              <p className="text-sm text-slate-400 mb-4">
+                {passwordAction === 'delete'
+                  ? 'Please enter password to delete this track. This action cannot be undone.'
+                  : 'Please enter the password to access import feature.'}
+              </p>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -321,15 +414,18 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
               <button
                 onClick={handlePasswordSubmit}
                 disabled={!password.trim() || isVerifying}
-                className="px-5 py-2.5 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className={`px-5 py-2.5 text-sm font-bold text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${passwordAction === 'delete'
+                  ? 'bg-red-500 hover:bg-red-600'
+                  : 'bg-amber-500 hover:bg-amber-600'
+                  }`}
               >
                 {isVerifying ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Verifying...
+                    {passwordAction === 'delete' ? 'Deleting...' : 'Verifying...'}
                   </>
                 ) : (
-                  'Unlock'
+                  passwordAction === 'delete' ? 'Delete' : 'Unlock'
                 )}
               </button>
             </div>
@@ -341,11 +437,11 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={handleCloseModal}
           />
-          
+
           {/* Modal Content */}
           <div className="relative bg-[#0f172a] rounded-3xl border border-white/10 shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             {/* Modal Header */}
@@ -457,7 +553,7 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
                 </div>
               </div>
             )}
-            
+
             {importSuccess && (
               <div className="px-6 pb-4">
                 <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
@@ -499,65 +595,95 @@ export default function PlaylistPanel({ songs, currentSongIndex, onSongSelect, o
         <div className="space-y-2 pb-8">
           {songs.map((song, index) => {
             const isActive = index === currentSongIndex;
+            const isMenuOpen = menuOpenId === song.id;
             return (
-              <button
-                key={song.id}
-                onClick={() => onSongSelect(index)}
-                /* ring-inset giúp viền của item active vẽ vào bên trong, 
-                   không bao giờ chạm vào viền của khung PlaylistPanel ngoài cùng 
-                */
-                className={`w-full text-left px-5 py-4 rounded-2xl transition-all duration-300 group relative outline-none ${
-                  isActive
-                    ? 'bg-blue-500/10 ring-1 ring-inset ring-blue-400/30 shadow-lg z-20' 
+              <div key={song.id} className="relative">
+                <button
+                  onClick={() => onSongSelect(index)}
+                  /* ring-inset giúp viền của item active vẽ vào bên trong, 
+                     không bao giờ chạm vào viền của khung PlaylistPanel ngoài cùng 
+                  */
+                  className={`w-full text-left px-5 py-4 rounded-2xl transition-all duration-300 group relative outline-none ${isActive
+                    ? 'bg-blue-500/10 ring-1 ring-inset ring-blue-400/30 shadow-lg z-20'
                     : 'hover:bg-white/5 text-slate-400 hover:text-white z-10'
-                }`}
-              >
-                <div className="flex items-center gap-5 relative z-30">
-                  {/* Số thứ tự hoặc Music Bar */}
-                  <div className="w-10 flex justify-center items-center">
-                    {isActive ? (
-                      <div className="flex gap-1 items-end h-4">
-                        <div className="w-1 bg-blue-400 animate-[music-bar_0.8s_ease-in-out_infinite]" />
-                        <div className="w-1 bg-blue-400 animate-[music-bar_1.2s_ease-in-out_infinite]" />
-                        <div className="w-1 bg-blue-400 animate-[music-bar_1.0s_ease-in-out_infinite]" />
-                      </div>
-                    ) : (
-                      <span className="text-xl font-black font-mono text-slate-600 group-hover:opacity-0 transition-opacity">
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
-                    )}
-                    {!isActive && (
-                      <PlayCircle className="absolute w-7 h-7 text-blue-400 opacity-0 group-hover:opacity-100 transition-all transform scale-75 group-hover:scale-100" />
-                    )}
-                  </div>
-
-                  {/* Thông tin bài hát */}
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-base font-bold truncate transition-colors ${
-                      isActive ? 'text-white' : 'text-slate-300'
-                    }`}>
-                      {song.title}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-blue-400' : 'text-slate-600'}`}>
-                        ARTIST
-                      </span>
-                      {song.hasLyrics && (
-                        <div className={`flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md ring-1 ring-inset ${
-                          isActive ? 'bg-blue-500/20 ring-blue-500/30 text-blue-300' : 'bg-white/5 ring-white/10 text-slate-600'
-                        }`}>
-                          <Mic2 className="w-2.5 h-2.5" /> LYRICS
+                    }`}
+                >
+                  <div className="flex items-center gap-5 relative z-30">
+                    {/* Số thứ tự hoặc Music Bar */}
+                    <div className="w-10 flex justify-center items-center">
+                      {isActive ? (
+                        <div className="flex gap-1 items-end h-4">
+                          <div className="w-1 bg-blue-400 animate-[music-bar_0.8s_ease-in-out_infinite]" />
+                          <div className="w-1 bg-blue-400 animate-[music-bar_1.2s_ease-in-out_infinite]" />
+                          <div className="w-1 bg-blue-400 animate-[music-bar_1.0s_ease-in-out_infinite]" />
                         </div>
+                      ) : (
+                        <span className="text-xl font-black font-mono text-slate-600 group-hover:opacity-0 transition-opacity">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                      )}
+                      {!isActive && (
+                        <PlayCircle className="absolute w-7 h-7 text-blue-400 opacity-0 group-hover:opacity-100 transition-all transform scale-75 group-hover:scale-100" />
                       )}
                     </div>
-                  </div>
 
-                  {/* Dấu chấm trạng thái đang phát */}
-                  {isActive && (
-                    <div className="w-2 h-2 bg-blue-400 rounded-full shadow-[0_0_10px_#60a5fa] animate-pulse" />
+                    {/* Thông tin bài hát */}
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-base font-bold truncate transition-colors ${isActive ? 'text-white' : 'text-slate-300'
+                        }`}>
+                        {song.title}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-blue-400' : 'text-slate-600'}`}>
+                          ARTIST
+                        </span>
+                        {song.hasLyrics && (
+                          <div className={`flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-md ring-1 ring-inset ${isActive ? 'bg-blue-500/20 ring-blue-500/30 text-blue-300' : 'bg-white/5 ring-white/10 text-slate-600'
+                            }`}>
+                            <Mic2 className="w-2.5 h-2.5" /> LYRICS
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* 3-dot Menu Button */}
+                <div
+                  ref={isMenuOpen ? menuRef : null}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-40"
+                >
+                  <button
+                    onClick={(e) => handleTrackMenuClick(e, song.id)}
+                    className={`p-2 rounded-lg transition-all duration-200 ${isMenuOpen
+                      ? 'bg-white/10 text-white'
+                      : 'text-slate-500 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100'
+                      } ${isActive ? 'opacity-100' : ''}`}
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 bg-[#1e293b] border border-white/10 rounded-xl shadow-xl overflow-hidden z-50">
+                      <button
+                        onClick={() => handleUpdateTrack(song.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap"
+                      >
+                        <Pencil className="w-4 h-4 flex-shrink-0" />
+                        Update track
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTrack(song.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors whitespace-nowrap"
+                      >
+                        <Trash2 className="w-4 h-4 flex-shrink-0" />
+                        Delete track
+                      </button>
+                    </div>
                   )}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
